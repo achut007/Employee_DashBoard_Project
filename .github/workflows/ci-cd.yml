@@ -1,0 +1,101 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+  IMAGE_FRONTEND: ${{ secrets.DOCKER_HUB_USERNAME }}/employee-frontend
+  IMAGE_BACKEND: ${{ secrets.DOCKER_HUB_USERNAME }}/employee-backend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Step 1: Checkout code ──────────────────────────────────────────────
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # ── Step 2: Set image tag using git commit hash ────────────────────────
+      - name: Set Image Tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::8}" >> $GITHUB_ENV
+
+      # ── Step 3: Login to Docker Hub ────────────────────────────────────────
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      # ── Step 4: Build Docker images ────────────────────────────────────────
+      - name: Build Frontend Image
+        run: |
+          docker build -t $IMAGE_FRONTEND:$IMAGE_TAG -t $IMAGE_FRONTEND:latest ./frontend
+
+      - name: Build Backend Image
+        run: |
+          docker build -t $IMAGE_BACKEND:$IMAGE_TAG -t $IMAGE_BACKEND:latest ./backend
+
+      # ── Step 5: Push images to Docker Hub (commit-hash + latest) ──────────
+      - name: Push Frontend Image
+        run: |
+          docker push $IMAGE_FRONTEND:$IMAGE_TAG
+          docker push $IMAGE_FRONTEND:latest
+
+      - name: Push Backend Image
+        run: |
+          docker push $IMAGE_BACKEND:$IMAGE_TAG
+          docker push $IMAGE_BACKEND:latest
+
+      # ── Step 6: Start stack for smoke tests ───────────────────────────────
+      - name: Start Application for Smoke Tests
+        run: |
+          cp .env.example .env
+          docker compose up -d --build
+          echo "Waiting for services to be healthy..."
+          sleep 20
+
+      # ── Step 7: Smoke Tests ────────────────────────────────────────────────
+      - name: Run Smoke Tests
+        id: smoke_tests
+        run: |
+          echo "=== Testing Frontend ==="
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/)
+          if [ "$STATUS" != "200" ]; then
+            echo "FAIL: Frontend returned HTTP $STATUS"
+            exit 1
+          fi
+          echo "PASS: Frontend returned HTTP 200"
+
+          echo "=== Testing API ==="
+          RESPONSE=$(curl -s http://localhost/api/)
+          echo "API Response: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "import sys, json; json.load(sys.stdin)" || {
+            echo "FAIL: API did not return valid JSON"
+            exit 1
+          }
+          echo "PASS: API returned valid JSON"
+
+      # ── Step 8: Rollback on smoke test failure ─────────────────────────────
+      - name: Rollback on Failure
+        if: failure() && steps.smoke_tests.outcome == 'failure'
+        run: |
+          echo "Smoke tests failed. Initiating rollback..."
+          bash scripts/rollback.sh
+          echo "Rollback complete."
+
+      # ── Step 9: Deploy to production (on success) ─────────────────────────
+      - name: Deploy to Production
+        if: success()
+        run: |
+          echo "Smoke tests passed. Deploying to production..."
+          docker compose up -d
+          echo "Deployed successfully with image tag: $IMAGE_TAG"
+
+      # ── Cleanup ────────────────────────────────────────────────────────────
+      - name: Teardown test stack
+        if: always()
+        run: docker compose down -v || true

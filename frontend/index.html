@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <title>BancApp Employee Dashboard</title>
+
+    <style>
+
+        body {
+            font-family: Arial;
+            background-color: #f4f6f9;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #2c3e50;
+        }
+
+        input {
+            padding: 8px;
+            margin: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        table {
+            margin-top: 20px;
+            border-collapse: collapse;
+            width: 70%;
+            background: white;
+        }
+
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <h1>BancApp Employee Dashboard</h1>
+
+    <input type="text" id="name" placeholder="Employee Name">
+
+    <input type="text" id="department" placeholder="Department">
+
+    <button onclick="addEmployee()">
+        Add Employee
+    </button>
+
+    <button onclick="loadEmployees(false)">
+        Load Employees
+    </button>
+
+    <table id="employeeTable">
+
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Department</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+
+        <tbody>
+        </tbody>
+
+    </table>
+
+<script>
+
+async function loadEmployees(enableDelete = false) {
+
+    const response = await fetch('/api/employees');
+
+    const data = await response.json();
+
+    const tbody = document.querySelector('#employeeTable tbody');
+
+    tbody.innerHTML = '';
+
+    data.forEach(emp => {
+
+        const row = `
+            <tr>
+                <td>${emp.id}</td>
+                <td>${emp.name}</td>
+                <td>${emp.department}</td>
+                <td>
+
+                    <button
+                        onclick="deleteEmployee(${emp.id})"
+                        ${!enableDelete ? 'disabled' : ''}
+                        style="
+                            background-color:${enableDelete ? '#dc3545' : 'gray'};
+                            cursor:${enableDelete ? 'pointer' : 'not-allowed'};
+                            opacity:0.8;
+                        "
+                    >
+                        Delete
+                    </button>
+
+                </td>
+            </tr>
+        `;
+
+        tbody.innerHTML += row;
+    });
+}
+
+async function addEmployee() {
+
+    const name = document.getElementById('name').value;
+
+    const department = document.getElementById('department').value;
+
+    await fetch('/api/employees', {
+
+        method: 'POST',
+
+        headers: {
+            'Content-Type': 'application/json'
+        },
+
+        body: JSON.stringify({
+            name,
+            department
+        })
+    });
+
+    loadEmployees(true);
+}
+
+
+async function deleteEmployee(id) {
+
+    await fetch(`/api/employees/${id}`, {
+        method: 'DELETE'
+    });
+
+    loadEmployees(true);
+}
+
+</script>
+
+</body>
+</html>
