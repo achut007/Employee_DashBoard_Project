@@ -320,3 +320,4 @@ docker compose restart backend
 sudo lsof -i :80
 # Change frontend port in docker-compose.yml if needed
 ```
+
