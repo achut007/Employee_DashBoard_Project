@@ -291,10 +291,10 @@ cat /var/log/app-monitor/report_2025-01-01_10-00-00.log
 
 > Add your screenshots here after running the project.
 
-- `screenshots/pipeline-success.png` — Successful GitHub Actions run
-- `screenshots/monitoring-report.png` — Sample monitoring output
-- `screenshots/frontend.png` — Frontend at http://server-ip/
-- `screenshots/api-response.png` — API at http://server-ip/api/
+- `screenshots/pipeline.png` — Successful GitHub Actions run
+- `screenshots/Monitoring_Script.png` — Sample monitoring output
+- `screenshots/Frontend.png` — Frontend at http://server-ip/
+- `screenshots/API.png` — API at http://server-ip/api/
 
 ---
 
